@@ -1,0 +1,29 @@
+lv_align_verify:
+  # file directory
+  output_directory: /home/xyw/catkin_ws/output # 无需提前创建文件夹，程序会自动检测是否有该路径存在，但用户名应确保存在
+
+  # zed
+  camera_resolution: HD720 # 分辨率越低速度越快,HD720,HD2K
+  camera_fps: 60 # HD1080只能30或15,HD720有15,30,60
+  ## depth
+  depth_mode: ULTRA # PERFORMANCE 运行速度更快,ULTRA比较准确
+  depth_minimum: 0.3
+  depth_maximum: 20.0
+  coordinate_units: METER
+  coordinate_system: ROS
+  sensing_mode: STANDARD
+  enable_depth: false # 关闭深度计算，可以加速grab
+
+  # lidar
+  points_topic: /rslidar_points
+  with_RT_field: true # 是否有RT域，没有的话，不会触发点云畸变校正
+
+  # align
+  # 说明：请给出外参矩阵，如果要给RPY，请使用dynamic reconfigure进行调试，退出程序时，会打印对应的齐次矩阵
+  ## extrinsics (camera->lidar)，作为vector读取，row-major
+  transform_c_l: [  1 ,0,  0  ,        -0.02,
+                0,   1,  0 ,         -0.06,
+                0,  0 ,  1 ,         0.055,
+                0  ,        0       ,   0   ,       1]
+  ## dynamic reconfiguration parameters
+  margin: 0

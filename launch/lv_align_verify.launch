@@ -1,0 +1,5 @@
+<launch>
+	<rosparam file="$(find lv_align_verify)/config/params.yaml" command="load" />
+	<node name="lv_align_verify" pkg="lv_align_verify" type="lv_align_verify_node" output="screen">
+	</node>
+</launch>
