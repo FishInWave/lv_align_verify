@@ -178,9 +178,13 @@ void LVAlignVerify::initialSystem()
     c_l_roll_ = eulerAngle[0];
     c_l_pitch_ = eulerAngle[1];
     c_l_yaw_ = eulerAngle[2];
-    // pnh_.setParam("c_l_roll",c_l_roll_);
-    // pnh_.setParam("c_l_pitch",c_l_pitch_);
-    // pnh_.setParam("c_l_yaw",c_l_yaw_);
+    pnh_.setParam("c_l_x",transform_c_l_(0,3));
+    pnh_.setParam("c_l_y",transform_c_l_(1,3));
+    pnh_.setParam("c_l_z",transform_c_l_(2,3));
+
+    pnh_.setParam("c_l_roll",c_l_roll_);
+    pnh_.setParam("c_l_pitch",c_l_pitch_);
+    pnh_.setParam("c_l_yaw",c_l_yaw_);
     cout << "Equivalent RPY is: " << eulerAngle.transpose() << endl;
     cout << "Key introduction:\n "
               << "q: quit this program" << std::endl;
@@ -207,19 +211,35 @@ void LVAlignVerify::reconfigureCB(lv_align_verify::LVAlignVerifyConfig &config, 
     transform_c_l_.block<3,1>(0,3) = Eigen::Vector3d(c_l_x_,c_l_y_,c_l_z_);
     transform_mutex_.unlock();
 }
-// FIXME 目前版本的实现，激光滞后于相机，但从代码上来看，两者都工作在10Hz。
+// 目前版本的实现，激光滞后于相机，但从代码上来看，两者都工作在10Hz。
+// 9/22 得到了ZED support的回复，相机的时间戳也是system clock，但是USB传输本身有缓冲区，这个时间戳是图片信息
+//      出现在缓冲区里的时刻，因此却是会出现相机明明在激光到达后开始采集，时间戳却反而更早的情况。
+// 目前的带宽下时间戳顺序为：
+//image_zed.timestamp < lidar_msgs.header.timestamp < pointCallback.begintime < exec grab
+// 60FPS下，以image_zed为基准，后续的dt分别为：0.026 0.0296 0.300s，说明该方式下，激光约滞后于相机1.5帧。
 void LVAlignVerify::pointsCallback(const sensor_msgs::PointCloud2ConstPtr msg)
 {
+    ros::Time t_point_cb = ros::Time::now();
+    ros::Time t_lidar = msg->header.stamp;
     Mat image_zed;
     cv::Mat image_cv;
     if (zed_.grab(runtime_parameters_) == ERROR_CODE::SUCCESS)
     {
-        // ros::Time t1 = ros::Time::now();
+        ros::Time t_grab = ros::Time::now();
         zed_.retrieveImage(image_zed, VIEW::LEFT);
-        // ros::Time t2 = slTime2Ros(image_zed.timestamp);
-        // cout << "time diff: " << (t2-t1).toSec() << fixed << setprecision(9) << endl;
+        ros::Time t_image = slTime2Ros(image_zed.timestamp);
         image_cv = slMat2cvMat(image_zed);
+        // 验证时间戳顺序的代码
+        vector<double> time_diff;
+        time_diff.push_back((t_image-t_lidar).toSec());
+        time_diff.push_back((t_point_cb-t_lidar).toSec());
+        time_diff.push_back((t_grab-t_lidar).toSec());
+        for(double d:time_diff){
+            cout << "time diff: " << d << fixed << setprecision(9) << endl;
+        }
+        cout << endl;
     }
+   
     // PointCloud::Ptr cloud(new PointCloud());
     PointCloud::Ptr cloud(new PointCloud());
     PointCloud::Ptr cloud_zed_ros(new PointCloud());
